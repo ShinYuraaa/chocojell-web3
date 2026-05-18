@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Access - Choco Jell</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #6c757d;
+            margin-bottom: 30px;
+        }
+        
+        .info-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .info-box p {
+            color: #495057;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .link {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.3s ease;
+            margin: 10px 5px;
+        }
+        
+        .link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .link-secondary {
+            background: #6c757d;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .feature-list li {
+            padding: 10px 0;
+            color: #495057;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .feature-list li:before {
+            content: "✓ ";
+            color: #28a745;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .logo img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+            color: #856404;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <img src="img/logo.png" alt="Choco Jell Logo">
+        </div>
+        
+        <h1>🎛️ Panel Admin Choco Jell</h1>
+        <p class="subtitle">Sistem Manajemen E-Commerce Minuman</p>
+        
+        <div class="info-box">
+            <h3>🚀 Akses Panel Admin</h3>
+            <p>Untuk masuk ke panel admin, silakan klik tombol di bawah ini:</p>
+            <div class="text-center">
+                <a href="admin/dashboard" class="link">Masuk ke Dashboard Admin</a>
+            </div>
+        </div>
+        
+        <div class="info-box">
+            <h3>✨ Fitur-Fitur Admin</h3>
+            <ul class="feature-list">
+                <li>Manajemen Produk (Tambah, Edit, Hapus)</li>
+                <li>Update Stok Minuman Real-time</li>
+                <li>Tambah Display Minuman Baru</li>
+                <li>Menentukan & Update Harga</li>
+                <li>Update Status Pesanan (Pending, Sedang Dibuat, Dalam Perjalanan, Selesai, Dibatalkan)</li>
+                <li>Dashboard dengan Statistik</li>
+                <li>Upload Gambar Produk</li>
+            </ul>
+        </div>
+        
+        <div class="info-box warning">
+            <h3>⚠️ Catatan Penting</h3>
+            <p><strong>Untuk Production:</strong> Pastikan Anda menambahkan sistem autentikasi dan middleware untuk melindungi halaman admin. Saat ini, halaman admin dapat diakses langsung tanpa login.</p>
+            <p>Lihat file <code>ADMIN_README.md</code> untuk dokumentasi lengkap dan panduan implementasi security.</p>
+        </div>
+        
+        <div class="info-box">
+            <h3>📚 Dokumentasi</h3>
+            <p>Dokumentasi lengkap tersedia di file:</p>
+            <div class="text-center">
+                <code style="background: #e9ecef; padding: 5px 10px; border-radius: 4px; display: inline-block; margin: 10px 0;">ADMIN_README.md</code>
+            </div>
+        </div>
+        
+        <div class="text-center" style="margin-top: 30px;">
+            <a href="/" class="link link-secondary">← Kembali ke Homepage</a>
+            <a href="admin/dashboard" class="link">Dashboard Admin →</a>
+        </div>
+        
+        <div style="margin-top: 30px; text-align: center; color: #6c757d; font-size: 0.9rem;">
+            <p>Dibuat oleh <strong>Kelompok Sage</strong></p>
+            <p style="margin-top: 5px;">© 2025 Choco Jell. All Rights Reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

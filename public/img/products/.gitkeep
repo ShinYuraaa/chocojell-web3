@@ -1,0 +1,5 @@
+# Folder ini untuk menyimpan gambar produk yang diupload
+# File gambar akan otomatis disimpan di sini saat admin menambah/edit produk
+
+# Struktur nama file: timestamp_namafile.extension
+# Contoh: 1699123456_chocolate.jpg
