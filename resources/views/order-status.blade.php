@@ -117,15 +117,15 @@
                 <h3>Informasi Pengiriman</h3>
                 <div class="detail-row">
                     <strong>Nama:</strong>
-                    <span>{{ $order->nama }}</span>
+                    <span>{{ $order->customer_name }}</span>
                 </div>
                 <div class="detail-row">
                     <strong>No. Telepon:</strong>
-                    <span>{{ $order->no_telp }}</span>
+                    <span>{{ $order->customer_phone }}</span>
                 </div>
                 <div class="detail-row">
                     <strong>Alamat:</strong>
-                    <span>{{ $order->alamat }}</span>
+                    <span>{{ $order->customer_address }}</span>
                 </div>
             </div>
 

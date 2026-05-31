@@ -6,6 +6,7 @@
     <title>Dashboard Admin - Choco Jell</title>
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
     <link rel="icon" href="{{ asset('img/logo.png') }}" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="admin-container">
@@ -73,7 +74,15 @@
                     <div class="stat-icon" style="background: #6bcf7f;"><img src="{{ asset('img/correct.png') }}" alt="correct" style="width: 25px; height: 25px;"></div>
                     <div class="stat-info">
                         <h3>Selesai Hari Ini</h3>
-                        <p class="stat-number">0</p>
+                        <p class="stat-number">{{ $completedToday }}</p>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #ff9999;"><img src="{{ asset('img/cancel.png') }}" alt="cancel" style="width: 25px; height: 25px;"></div>
+                    <div class="stat-info">
+                        <h3>Pesanan Dibatalkan</h3>
+                        <p class="stat-number">{{ $cancelledOrders }}</p>
                     </div>
                 </div>
             </div>
@@ -89,7 +98,7 @@
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>ID</th>
+                                <th>ID Order</th>
                                 <th>Customer</th>
                                 <th>Tanggal</th>
                                 <th>Total</th>
@@ -101,7 +110,7 @@
                             <tr>
                                 <td>#{{ $order->order_id }}</td>
                                 <td>{{ $order->customer_name }}</td>
-                                <td>{{ date('d M Y', strtotime($order->order_date)) }}</td>
+                                <td>{{ date('d M Y', strtotime($order->created_at)) }}</td>
                                 <td>Rp {{ number_format($order->total_price, 0, ',', '.') }}</td>
                                 <td>
                                     <span class="status-badge status-{{ str_replace(' ', '-', $order->status) }}">
@@ -116,6 +125,63 @@
                             @endforelse
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Top Products -->
+            <div class="content-section">
+                <div class="section-header">
+                    <h2>Penjualan Produk</h2>
+                    <div class="tab-buttons">
+                        <button class="tab-btn active" data-tab="today">Hari Ini</button>
+                        <button class="tab-btn" data-tab="week">Minggu Ini</button>
+                        <button class="tab-btn" data-tab="month">Bulan Ini</button>
+                        <button class="tab-btn" data-tab="year">Tahun Ini</button>
+                    </div>
+                </div>
+
+                <!-- Today's Top Products -->
+                <div class="tab-content active" id="today-tab">
+                    @if($topProductsToday->isEmpty())
+                        <p style="text-align: center; color: #999; padding: 20px;">Belum ada penjualan hari ini</p>
+                    @else
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="chartToday"></canvas>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Week's Top Products -->
+                <div class="tab-content" id="week-tab">
+                    @if($topProductsWeek->isEmpty())
+                        <p style="text-align: center; color: #999; padding: 20px;">Belum ada penjualan minggu ini</p>
+                    @else
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="chartWeek"></canvas>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Month's Top Products -->
+                <div class="tab-content" id="month-tab">
+                    @if($topProductsMonth->isEmpty())
+                        <p style="text-align: center; color: #999; padding: 20px;">Belum ada penjualan bulan ini</p>
+                    @else
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="chartMonth"></canvas>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Year's Top Products -->
+                <div class="tab-content" id="year-tab">
+                    @if($topProductsYear->isEmpty())
+                        <p style="text-align: center; color: #999; padding: 20px;">Belum ada penjualan tahun ini</p>
+                    @else
+                        <div style="position: relative; height: 300px;">
+                            <canvas id="chartYear"></canvas>
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -148,5 +214,111 @@
             </div>
         </main>
     </div>
+
+    <script>
+        // Data dari server
+        const topProductsToday = @json($topProductsToday);
+        const topProductsWeek = @json($topProductsWeek);
+        const topProductsMonth = @json($topProductsMonth);
+        const topProductsYear = @json($topProductsYear);
+        
+        const charts = {};
+        
+        function createChart(canvasId, data) {
+            if (!data || data.length === 0) return;
+            
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+            
+            const labels = data.map(p => p.product_name);
+            const values = data.map(p => p.total_sold);
+            
+            // Destroy existing chart if it exists
+            if (charts[canvasId]) {
+                charts[canvasId].destroy();
+            }
+            
+            charts[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Unit Terjual',
+                        data: values,
+                        backgroundColor: [
+                            '#00888A', '#006c6e', '#00a8ab', '#00b0b3', '#00d4d8'
+                        ],
+                        borderColor: '#005959',
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: {
+                                font: { size: 12 },
+                                padding: 15
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1,
+                                font: { size: 11 }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: { size: 11 }
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Initialize charts
+        document.addEventListener('DOMContentLoaded', function() {
+            createChart('chartToday', topProductsToday);
+            createChart('chartWeek', topProductsWeek);
+            createChart('chartMonth', topProductsMonth);
+            createChart('chartYear', topProductsYear);
+        });
+        
+        // Tab functionality for top products
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const tabName = this.getAttribute('data-tab');
+                
+                // Remove active class from all buttons and tabs
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+                
+                // Add active class to clicked button and corresponding tab
+                this.classList.add('active');
+                document.getElementById(tabName + '-tab').classList.add('active');
+                
+                // Re-render chart for the active tab
+                setTimeout(() => {
+                    if (tabName === 'today') createChart('chartToday', topProductsToday);
+                    else if (tabName === 'week') createChart('chartWeek', topProductsWeek);
+                    else if (tabName === 'month') createChart('chartMonth', topProductsMonth);
+                    else if (tabName === 'year') createChart('chartYear', topProductsYear);
+                }, 100);
+            });
+        });
+    </script>
 </body>
 </html>

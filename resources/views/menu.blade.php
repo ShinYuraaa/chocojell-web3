@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Choco Jell - Shop</title>
     <link rel="stylesheet" href="{{ asset('css/menu.css') }}">
     <link rel="icon" href="{{ asset('img/logo.png') }}" />
@@ -80,6 +81,28 @@
                 <div class="product-info">
                     <h3>{{ $product->product_name }}</h3>
                     <p class="product-description">{{ Str::limit($product->description, 80) }}</p>
+                    
+                    <!-- Rating Display -->
+                    <div class="product-rating">
+                        <div class="stars">
+                            @php
+                                $rating = $product->avg_rating ?? 0;
+                                $fullStars = (int)$rating;
+                                $hasHalfStar = ($rating - $fullStars) >= 0.5;
+                            @endphp
+                            @for($i = 0; $i < 5; $i++)
+                                @if($i < $fullStars)
+                                    <span class="star filled">★</span>
+                                @elseif($i == $fullStars && $hasHalfStar)
+                                    <span class="star half">★</span>
+                                @else
+                                    <span class="star empty">★</span>
+                                @endif
+                            @endfor
+                        </div>
+                        <span class="rating-count">({{ $product->rating_count ?? 0 }} ulasan)</span>
+                    </div>
+                    
                     <div class="product-price">Rp. {{ number_format($product->price, 0, ',', '.') }}</div>
                     <div class="product-tags">
                         <span class="tag {{ $product->stock > 10 ? 'bestseller' : ($product->stock > 0 ? 'popular' : 'limited') }}">
@@ -89,6 +112,11 @@
                             <span class="tag new">{{ $product->category }}</span>
                         @endif
                     </div>
+                    
+                    <!-- View Details Button -->
+                    <button class="btn-details" onclick="openProductDetail({{ $product->product_id }}, '{{ $product->product_name }}', '{{ asset($product->image_url ?? 'img/logo.png') }}', {{ $product->price }}, '{{ $product->description }}', {{ $product->avg_rating ?? 0 }}, {{ $product->rating_count ?? 0 }})">
+                        Lihat Detail
+                    </button>
                 </div>
             </div>
             @empty
@@ -129,7 +157,6 @@
             <p>Muhammad Syaiful Fajri NIM: 2314000005</p>
             <p>Louis Ponglabba NIM: 2314000010 </p>
             <p>Muhammad Zidan Fikri  NIM: 2314000020</p>
-            <p>Muhammad Faqih Fadlurohman NIM: 2314000025</p>
             <p>Zahra Nadhifah Nasution NIM:2314000017</p>
             <p>alamat Perbanas bekasi:</p>
             <p>
@@ -170,6 +197,74 @@
     <div id="copyright">
         <div class="wrapper">
             &copy; 2025. <b>Kelompok sage</b> All Rights Reserved.
+        </div>
+    </div>
+
+    <!-- Product Detail Modal -->
+    <div class="product-detail-modal" id="productDetailModal">
+        <div class="product-detail-content">
+            <button class="close-detail">&times;</button>
+            
+            <div class="detail-container">
+                <div class="detail-image">
+                    <img id="modalProductImage" src="" alt="Product">
+                </div>
+                
+                <div class="detail-info">
+                    <h2 id="modalProductName"></h2>
+                    <p id="modalProductDescription" class="detail-description"></p>
+                    
+                    <!-- Rating Section -->
+                    <div class="detail-rating">
+                        <div class="rating-header">
+                            <h3>Rating & Ulasan</h3>
+                        </div>
+                        <div class="rating-display">
+                            <div class="stars" id="modalStars"></div>
+                            <span class="rating-text">
+                                <span id="modalAvgRating">0</span>/5 
+                                (<span id="modalRatingCount">0</span> ulasan)
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- Price -->
+                    <div class="detail-price">
+                        <span class="price-label">Harga:</span>
+                        <span class="price-value" id="modalProductPrice"></span>
+                    </div>
+                    
+                    <!-- Add to Cart Button -->
+                    <button id="addToCartBtn" class="btn-add-cart">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="9" cy="21" r="1"></circle>
+                            <circle cx="20" cy="21" r="1"></circle>
+                            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                        </svg>
+                        Tambah ke Keranjang
+                    </button>
+                    
+                    <!-- Rating Form -->
+                    <div class="rating-form">
+                        <h3>Berikan Rating</h3>
+                        <div class="stars-input" id="starsInput">
+                            @for($i = 1; $i <= 5; $i++)
+                                <span class="star-input" data-rating="{{ $i }}">★</span>
+                            @endfor
+                        </div>
+                        <textarea id="reviewText" placeholder="Tulis ulasan Anda (opsional)" maxlength="1000"></textarea>
+                        <button class="btn-submit-rating">Kirim Rating</button>
+                    </div>
+                    
+                    <!-- Reviews List -->
+                    <div class="reviews-section">
+                        <h3>Ulasan Pelanggan</h3>
+                        <div id="reviewsList" class="reviews-list">
+                            <p>Belum ada ulasan</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -358,6 +453,185 @@
             }
         `;
         document.head.appendChild(style);
+
+        // Product Detail Modal Functions
+        const productDetailModal = document.getElementById('productDetailModal');
+        const closeDetailBtn = document.querySelector('.close-detail');
+        let currentProductId = null;
+
+        closeDetailBtn.addEventListener('click', () => {
+            productDetailModal.style.display = 'none';
+        });
+
+        productDetailModal.addEventListener('click', (e) => {
+            if (e.target === productDetailModal) {
+                productDetailModal.style.display = 'none';
+            }
+        });
+
+        function openProductDetail(productId, name, image, price, description, avgRating, ratingCount) {
+            currentProductId = productId;
+            document.getElementById('modalProductName').textContent = name;
+            document.getElementById('modalProductImage').src = image;
+            document.getElementById('modalProductDescription').textContent = description;
+            document.getElementById('modalProductPrice').textContent = 'Rp ' + price.toLocaleString('id-ID');
+            document.getElementById('modalAvgRating').textContent = avgRating.toFixed(1);
+            document.getElementById('modalRatingCount').textContent = ratingCount;
+
+            // Generate stars
+            renderStars(avgRating);
+
+            // Load reviews
+            loadProductReviews(productId);
+
+            // Setup add to cart button
+            document.getElementById('addToCartBtn').onclick = () => {
+                addToCart(productId, name, price, image);
+            };
+
+            // Setup rating form
+            setupRatingForm(productId);
+
+            productDetailModal.style.display = 'flex';
+        }
+
+        function renderStars(rating) {
+            const starsContainer = document.getElementById('modalStars');
+            let html = '';
+            const fullStars = Math.floor(rating);
+            const hasHalfStar = (rating - fullStars) >= 0.5;
+
+            for (let i = 0; i < 5; i++) {
+                if (i < fullStars) {
+                    html += '<span class="star filled">★</span>';
+                } else if (i === fullStars && hasHalfStar) {
+                    html += '<span class="star half">★</span>';
+                } else {
+                    html += '<span class="star empty">★</span>';
+                }
+            }
+            starsContainer.innerHTML = html;
+        }
+
+        function loadProductReviews(productId) {
+            fetch(`/api/products/${productId}/ratings`)
+                .then(response => response.json())
+                .then(data => {
+                    const reviewsList = document.getElementById('reviewsList');
+                    if (data.ratings && data.ratings.length > 0) {
+                        let html = '';
+                        data.ratings.forEach(rating => {
+                            html += `
+                                <div class="review-item">
+                                    <div class="review-header">
+                                        <strong>${rating.customer_name}</strong>
+                                        <span class="review-rating">
+                                            ${'★'.repeat(rating.rating)}<span class="empty-stars">${'★'.repeat(5 - rating.rating)}</span>
+                                        </span>
+                                    </div>
+                                    ${rating.review_text ? `<p class="review-text">${rating.review_text}</p>` : ''}
+                                    <small class="review-date">${new Date(rating.created_at).toLocaleDateString('id-ID')}</small>
+                                </div>
+                            `;
+                        });
+                        reviewsList.innerHTML = html;
+                    } else {
+                        reviewsList.innerHTML = '<p style="color: #999;">Belum ada ulasan</p>';
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function setupRatingForm(productId) {
+            const starsInput = document.getElementById('starsInput');
+            const submitBtn = document.querySelector('.btn-submit-rating');
+            let selectedRating = 0;
+
+            if (!starsInput) return;
+
+            starsInput.querySelectorAll('.star-input').forEach(star => {
+                star.addEventListener('click', () => {
+                    selectedRating = parseInt(star.dataset.rating);
+                    starsInput.querySelectorAll('.star-input').forEach((s, index) => {
+                        if (index < selectedRating) {
+                            s.classList.add('selected');
+                        } else {
+                            s.classList.remove('selected');
+                        }
+                    });
+                });
+
+                star.addEventListener('mouseover', () => {
+                    const hoverRating = parseInt(star.dataset.rating);
+                    starsInput.querySelectorAll('.star-input').forEach((s, index) => {
+                        if (index < hoverRating) {
+                            s.style.color = '#FFD700';
+                        } else {
+                            s.style.color = '#ddd';
+                        }
+                    });
+                });
+            });
+
+            starsInput.addEventListener('mouseleave', () => {
+                starsInput.querySelectorAll('.star-input').forEach((s, index) => {
+                    if (s.classList.contains('selected')) {
+                        s.style.color = '#FFD700';
+                    } else {
+                        s.style.color = '#ddd';
+                    }
+                });
+            });
+
+            submitBtn.addEventListener('click', () => {
+                if (selectedRating === 0) {
+                    alert('Silakan pilih rating terlebih dahulu');
+                    return;
+                }
+
+                const reviewText = document.getElementById('reviewText').value;
+                submitRating(productId, selectedRating, reviewText);
+            });
+        }
+
+        function submitRating(productId, rating, reviewText) {
+            fetch('/api/ratings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').content : ''
+                },
+                body: JSON.stringify({
+                    product_id: productId,
+                    rating: rating,
+                    review_text: reviewText
+                })
+            })
+            .then(response => {
+                if (response.status === 401) {
+                    alert('Silakan login terlebih dahulu untuk memberikan rating');
+                    window.location.href = '{{ route('login') }}';
+                    return;
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data) {
+                    if (data.error) {
+                        alert(data.message || data.error);
+                    } else {
+                        alert(data.message || 'Rating berhasil disimpan!');
+                        document.getElementById('reviewText').value = '';
+                        document.getElementById('starsInput').querySelectorAll('.star-input').forEach(s => s.classList.remove('selected'));
+                        loadProductReviews(productId);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Gagal menyimpan rating');
+            });
+        }
     </script>
 </body>
 </html>

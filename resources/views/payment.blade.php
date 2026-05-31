@@ -173,15 +173,15 @@
                 <h3 style="color: #00888a; margin-bottom: 15px;">Detail Pesanan</h3>
                 <div class="summary-row">
                     <span>Nama Penerima:</span>
-                    <strong>{{ $order->nama }}</strong>
+                    <strong>{{ $order->customer_name }}</strong>
                 </div>
                 <div class="summary-row">
                     <span>No. Telepon:</span>
-                    <strong>{{ $order->no_telp }}</strong>
+                    <strong>{{ $order->customer_phone }}</strong>
                 </div>
                 <div class="summary-row">
                     <span>Alamat:</span>
-                    <strong>{{ $order->alamat }}</strong>
+                    <strong>{{ $order->customer_address }}</strong>
                 </div>
                 <div class="summary-row">
                     <span>Total Pembayaran:</span>

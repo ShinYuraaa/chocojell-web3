@@ -65,7 +65,7 @@
                 <div class="order-info">
                     <div class="info-item">
                         <strong>Penerima:</strong>
-                        <span>{{ $order->nama }}</span>
+                        <span>{{ $order->customer_name }}</span>
                     </div>
                     <div class="info-item">
                         <strong>Total:</strong>

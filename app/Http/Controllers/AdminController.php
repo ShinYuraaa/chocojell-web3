@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\Response;
 use App\Models\Admin;
 
 class AdminController extends Controller
@@ -56,16 +58,85 @@ class AdminController extends Controller
     public function dashboard()
     {
         $totalProducts = DB::table('products')->count();
-        $totalOrders = DB::table('orders')->count();
+        
+        // Total orders exclude cancelled
+        $totalOrders = DB::table('orders')->where('status', '!=', 'dibatalkan')->count();
+        
+        // Breakdown by status
         $pendingOrders = DB::table('orders')->where('status', 'pending')->count();
+        $cancelledOrders = DB::table('orders')->where('status', 'dibatalkan')->count();
+        
+        // Completed today
+        $completedToday = DB::table('orders')
+            ->where('status', 'selesai')
+            ->whereDate('updated_at', DB::raw('CURDATE()'))
+            ->count();
+        
         $recentOrders = DB::table('orders')
             ->join('customer', 'orders.customer_id', '=', 'customer.customer_id')
-            ->select(['orders.*', 'customer.nama as customer_name'])
+            ->select([
+                'orders.*',
+                DB::raw('COALESCE(orders.customer_name, customer.nama) as customer_name')
+            ])
             ->orderBy('orders.created_at', 'desc')
             ->limit(5)
             ->get();
+        
+        // Top products today
+        $topProductsToday = DB::table('ordersdetail')
+            ->join('products', 'ordersdetail.product_id', '=', 'products.product_id')
+            ->join('orders', 'ordersdetail.order_id', '=', 'orders.order_id')
+            ->whereDate('orders.created_at', DB::raw('CURDATE()'))
+            ->where('orders.status', '!=', 'dibatalkan')
+            ->select('products.product_id', 'products.product_name', 'products.image_url', DB::raw('SUM(ordersdetail.quantity) as total_sold'))
+            ->groupBy('products.product_id', 'products.product_name', 'products.image_url')
+            ->orderBy('total_sold', 'desc')
+            ->limit(5)
+            ->get();
+        
+        // Top products this week
+        $topProductsWeek = DB::table('ordersdetail')
+            ->join('products', 'ordersdetail.product_id', '=', 'products.product_id')
+            ->join('orders', 'ordersdetail.order_id', '=', 'orders.order_id')
+            ->whereRaw('WEEK(orders.created_at) = WEEK(NOW())')
+            ->whereRaw('YEAR(orders.created_at) = YEAR(NOW())')
+            ->where('orders.status', '!=', 'dibatalkan')
+            ->select('products.product_id', 'products.product_name', 'products.image_url', DB::raw('SUM(ordersdetail.quantity) as total_sold'))
+            ->groupBy('products.product_id', 'products.product_name', 'products.image_url')
+            ->orderBy('total_sold', 'desc')
+            ->limit(5)
+            ->get();
+        
+        // Top products this month
+        $topProductsMonth = DB::table('ordersdetail')
+            ->join('products', 'ordersdetail.product_id', '=', 'products.product_id')
+            ->join('orders', 'ordersdetail.order_id', '=', 'orders.order_id')
+            ->whereMonth('orders.created_at', DB::raw('MONTH(NOW())'))
+            ->whereYear('orders.created_at', DB::raw('YEAR(NOW())'))
+            ->where('orders.status', '!=', 'dibatalkan')
+            ->select('products.product_id', 'products.product_name', 'products.image_url', DB::raw('SUM(ordersdetail.quantity) as total_sold'))
+            ->groupBy('products.product_id', 'products.product_name', 'products.image_url')
+            ->orderBy('total_sold', 'desc')
+            ->limit(5)
+            ->get();
+        
+        // Top products this year
+        $topProductsYear = DB::table('ordersdetail')
+            ->join('products', 'ordersdetail.product_id', '=', 'products.product_id')
+            ->join('orders', 'ordersdetail.order_id', '=', 'orders.order_id')
+            ->whereYear('orders.created_at', DB::raw('YEAR(NOW())'))
+            ->where('orders.status', '!=', 'dibatalkan')
+            ->select('products.product_id', 'products.product_name', 'products.image_url', DB::raw('SUM(ordersdetail.quantity) as total_sold'))
+            ->groupBy('products.product_id', 'products.product_name', 'products.image_url')
+            ->orderBy('total_sold', 'desc')
+            ->limit(5)
+            ->get();
 
-        return view('admin.dashboard', compact('totalProducts', 'totalOrders', 'pendingOrders', 'recentOrders'));
+        return view('admin.dashboard', compact(
+            'totalProducts', 'totalOrders', 'pendingOrders', 'cancelledOrders', 
+            'completedToday', 'recentOrders', 'topProductsToday', 'topProductsWeek', 
+            'topProductsMonth', 'topProductsYear'
+        ));
     }
 
     public function products()
@@ -228,11 +299,11 @@ class AdminController extends Controller
             ->leftJoin('products', 'ordersdetail.product_id', '=', 'products.product_id')
             ->select([
                 'orders.*',
-                'customer.nama as customer_name',
-                'customer.alamat as customer_email',
+                DB::raw('COALESCE(orders.customer_name, customer.nama) as customer_name'),
+                DB::raw('COALESCE(orders.customer_address, customer.alamat) as customer_email'),
                 DB::raw('GROUP_CONCAT(CONCAT(products.product_name, " (", ordersdetail.quantity, ")") SEPARATOR ", ") as products_list')
             ])
-            ->groupBy('orders.order_id', 'orders.customer_id', 'orders.order_date', 'orders.total_price', 'orders.status', 'orders.created_at', 'orders.updated_at', 'customer.nama', 'customer.alamat')
+            ->groupBy('orders.order_id', 'orders.customer_id', 'orders.order_date', 'orders.total_price', 'orders.status', 'orders.created_at', 'orders.updated_at', 'orders.customer_name', 'customer.nama', 'orders.customer_address', 'customer.alamat')
             ->orderBy('orders.created_at', 'desc')
             ->get();
 
@@ -258,9 +329,6 @@ class AdminController extends Controller
     public function orderDetail(int $id)
     {
         $order = DB::table('orders')
-            ->join('customer', 'orders.customer_id', '=', 'customer.customer_id')
-            ->join('users', 'customer.user_id', '=', 'users.id')
-            ->select(['orders.*', 'customer.nama as customer_name', 'customer.alamat', 'customer.no_telp', 'users.email as customer_email'])
             ->where('orders.order_id', $id)
             ->first();
 
@@ -275,5 +343,66 @@ class AdminController extends Controller
             ->get();
 
         return view('admin.order-detail', compact('order', 'orderDetails'));
+    }
+
+    public function verifyPayment(Request $request, int $id)
+    {
+        $order = DB::table('orders')->where('order_id', $id)->first();
+
+        if (!$order) {
+            return redirect()->route('admin.orders')->with('error', 'Pesanan tidak ditemukan');
+        }
+
+        // Cek apakah pembayaran menggunakan QRIS
+        if ($order->payment_method !== 'qris') {
+            return redirect()->route('admin.order.detail', $id)->with('error', 'Hanya pembayaran QRIS yang perlu diverifikasi');
+        }
+
+        // Cek apakah sudah ada bukti pembayaran
+        if (!$order->payment_proof_path) {
+            return redirect()->route('admin.order.detail', $id)->with('error', 'Bukti pembayaran belum ada');
+        }
+
+        // Cek apakah sudah diverifikasi sebelumnya
+        if ($order->payment_verified_at) {
+            return redirect()->route('admin.order.detail', $id)->with('info', 'Pembayaran sudah terverifikasi sebelumnya');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Update order: set status menjadi "sedang dibuat" dan tandai pembayaran sebagai terverifikasi
+            DB::table('orders')
+                ->where('order_id', $id)
+                ->update([
+                    'status' => 'sedang dibuat',
+                    'payment_verified_at' => now(),
+                    'updated_at' => now()
+                ]);
+
+            DB::commit();
+
+            return redirect()->route('admin.order.detail', $id)->with('success', 'Pembayaran berhasil diverifikasi! Status pesanan diubah menjadi "Sedang Dibuat"');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->route('admin.order.detail', $id)->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
+    public function getPaymentProof(int $orderId)
+    {
+        $order = DB::table('orders')->where('order_id', $orderId)->first();
+
+        if (!$order || !$order->payment_proof_path) {
+            abort(404, 'File bukti pembayaran tidak ditemukan');
+        }
+
+        $filePath = $order->payment_proof_path;
+        
+        if (!Storage::disk('local')->exists($filePath)) {
+            abort(404, 'File tidak ditemukan di storage');
+        }
+
+        return response()->file(Storage::disk('local')->path($filePath));
     }
 }

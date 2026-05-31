@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
+use App\Helpers\BlockchainHelper;
 
 class OrderController extends Controller
 {
@@ -140,6 +141,7 @@ class OrderController extends Controller
             DB::beginTransaction();
 
             $userId = Session::get('user_id');
+            $user = DB::table('users')->where('id', $userId)->first();
             $cart = json_decode($validated['cart'], true);
 
             if (empty($cart)) {
@@ -156,31 +158,26 @@ class OrderController extends Controller
             $customer = DB::table('customer')->where('user_id', $userId)->first();
 
             if ($customer) {
-                // Update data customer
-                DB::table('customer')
-                    ->where('customer_id', $customer->customer_id)
-                    ->update([
-                        'nama' => $validated['nama'],
-                        'no_telp' => $validated['no_telp'],
-                        'alamat' => $validated['alamat'],
-                        'updated_at' => now()
-                    ]);
+                // Customer sudah ada, hanya gunakan customer_id
+                // JANGAN UPDATE customer table dari checkout!
+                // Data nama/alamat/telp disimpan langsung ke orders table
                 $customerId = $customer->customer_id;
             } else {
-                // Insert customer baru
+                // Insert customer baru dengan data minimal
                 $customerId = DB::table('customer')->insertGetId([
                     'user_id' => $userId,
-                    'nama' => $validated['nama'],
-                    'no_telp' => $validated['no_telp'],
-                    'alamat' => $validated['alamat'],
                     'created_at' => now(),
                     'updated_at' => now()
                 ]);
             }
 
-            // Insert order
+            // Insert order dengan customer details dari form checkout
             $orderId = DB::table('orders')->insertGetId([
                 'customer_id' => $customerId,
+                'customer_name' => $validated['nama'],
+                'customer_email' => $user->email ?? null,
+                'customer_phone' => $validated['no_telp'],
+                'customer_address' => $validated['alamat'],
                 'order_date' => now(),
                 'total_price' => $total,
                 'status' => 'pending',
@@ -226,6 +223,9 @@ class OrderController extends Controller
 
             DB::commit();
 
+            // Record order ke blockchain (async - queue jika perlu untuk production)
+            $this->recordOrderToBlockchainAsync($orderId);
+
             // Simpan order_id ke session
             Session::put('current_order_id', $orderId);
             Session::forget('cart'); // Hapus cart
@@ -244,8 +244,6 @@ class OrderController extends Controller
     public function payment(int $orderId)
     {
         $order = DB::table('orders')
-            ->join('customer', 'orders.customer_id', '=', 'customer.customer_id')
-            ->select(['orders.*', 'customer.nama', 'customer.no_telp', 'customer.alamat'])
             ->where('orders.order_id', $orderId)
             ->first();
 
@@ -380,8 +378,6 @@ class OrderController extends Controller
     public function orderStatus(int $orderId)
     {
         $order = DB::table('orders')
-            ->join('customer', 'orders.customer_id', '=', 'customer.customer_id')
-            ->select(['orders.*', 'customer.nama', 'customer.no_telp', 'customer.alamat'])
             ->where('orders.order_id', $orderId)
             ->first();
 
@@ -417,5 +413,67 @@ class OrderController extends Controller
             ->get();
 
         return view('my-orders', compact('orders'));
+    }
+
+    /**
+     * Record order to blockchain (async - dapat dipanggil dari processOrder)
+     * Metode ini dijalankan secara asynchronous untuk menghindari blocking user
+     * Jika recording gagal, dapat di-retry dengan command: php artisan blockchain:record-pending
+     */
+    private function recordOrderToBlockchainAsync(int $orderId)
+    {
+        try {
+            $order = DB::table('orders')->where('order_id', $orderId)->first();
+            if (!$order) {
+                return;
+            }
+
+            // Generate order hash
+            $orderHash = BlockchainHelper::generateOrderHashWeb3(
+                $order->order_id,
+                $order->customer_id,
+                $order->total_price,
+                \Carbon\Carbon::parse($order->order_date)->format('Y-m-d')
+            );
+
+            // Attempt to record to blockchain
+            $result = BlockchainHelper::recordOrderToBlockchain(
+                $order->order_id,
+                $order->customer_id,
+                $order->total_price,
+                $orderHash
+            );
+
+            if ($result['success']) {
+                // Update order dengan blockchain info
+                DB::table('orders')
+                    ->where('order_id', $orderId)
+                    ->update([
+                        'blockchain_hash' => $orderHash,
+                        'blockchain_tx_hash' => $result['tx_hash'],
+                        'blockchain_recorded_at' => now(),
+                        'blockchain_status' => 'recorded',
+                        'blockchain_retry_count' => 0,
+                        'updated_at' => now(),
+                    ]);
+
+                \Illuminate\Support\Facades\Log::info("Order ID {$orderId} recorded to blockchain with TX: {$result['tx_hash']}");
+            } else {
+                // Mark as pending for retry
+                DB::table('orders')
+                    ->where('order_id', $orderId)
+                    ->update([
+                        'blockchain_hash' => $orderHash,
+                        'blockchain_status' => 'pending',
+                        'blockchain_retry_count' => 1,
+                        'updated_at' => now(),
+                    ]);
+
+                \Illuminate\Support\Facades\Log::warning("Order ID {$orderId} blockchain recording failed: {$result['error']}. Will retry later.");
+            }
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("recordOrderToBlockchainAsync error for order ID {$orderId}: " . $e->getMessage());
+        }
     }
 }

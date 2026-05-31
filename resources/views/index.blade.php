@@ -51,6 +51,24 @@
                 <div class="product-info">
                     <h3>{{ $product->product_name }}</h3>
                     <p class="product-description">{{ Str::limit($product->description, 60) }}</p>
+                    <div class="product-rating" style="display: flex; align-items: center; gap: 10px; margin: 8px 0;">
+                        <span class="stars" style="color: #FFD700; font-size: 14px;">
+                            @if($product->avg_rating)
+                                @for($i = 1; $i <= 5; $i++)
+                                    @if($i <= floor($product->avg_rating))
+                                        ★
+                                    @elseif($i - $product->avg_rating < 1)
+                                        ★
+                                    @else
+                                        ☆
+                                    @endif
+                                @endfor
+                            @else
+                                ☆☆☆☆☆
+                            @endif
+                        </span>
+                        <span class="rating-count" style="font-size: 12px; color: #999;">({{ $product->rating_count ?? 0 }} ulasan)</span>
+                    </div>
                     <div class="product-price">Rp. {{ number_format($product->price, 0, ',', '.') }}</div>
                     <div class="product-tags">
                         @if($product->stock > 0)
@@ -103,7 +121,6 @@
             <p>Muhammad Syaiful Fajri NIM: 2314000005</p>
             <p>Louis Ponglabba NIM: 2314000010 </p>
             <p>Muhammad Zidan Fikri  NIM: 2314000020</p>
-            <p>Muhammad Faqih Fadlurohman NIM: 2314000025</p>
             <p>Zahra Nadhifah Nasution NIM:2314000017</p>
             <p>alamat Perbanas bekasi:</p>
             <p>

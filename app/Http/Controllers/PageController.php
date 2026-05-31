@@ -14,12 +14,20 @@ class PageController extends Controller
      */
     public function index()
     {
-        // Ambil produk dari database dengan stok
+        // Jika user sudah login, arahkan ke menu
+        if (Session::has('user_id')) {
+            return redirect()->route('menu');
+        }
+        
+        // Ambil semua produk dari database
         $products = DB::table('products')
             ->join('inventory', 'products.product_id', '=', 'inventory.product_id')
-            ->select(['products.*', 'inventory.stock'])
-            ->where('inventory.stock', '>', 0) // Hanya produk yang ada stoknya
-            ->limit(4) // Batasi 4 produk untuk homepage
+            ->select([
+                'products.*', 
+                'inventory.stock',
+                DB::raw('(SELECT AVG(rating) FROM product_ratings WHERE product_id = products.product_id) as avg_rating'),
+                DB::raw('(SELECT COUNT(*) FROM product_ratings WHERE product_id = products.product_id) as rating_count')
+            ])
             ->get();
 
         return view('index', compact('products'));
@@ -30,6 +38,11 @@ class PageController extends Controller
      */
     public function login()
     {
+        // Jika user sudah login, arahkan ke menu
+        if (Session::has('user_id')) {
+            return redirect()->route('menu');
+        }
+        
         return view('login');
     }
 
@@ -38,6 +51,11 @@ class PageController extends Controller
      */
     public function signup()
     {
+        // Jika user sudah login, arahkan ke menu
+        if (Session::has('user_id')) {
+            return redirect()->route('menu');
+        }
+        
         return view('signup');
     }
 
@@ -49,7 +67,12 @@ class PageController extends Controller
         // Ambil semua produk dari database dengan stok
         $products = DB::table('products')
             ->join('inventory', 'products.product_id', '=', 'inventory.product_id')
-            ->select(['products.*', 'inventory.stock'])
+            ->select([
+                'products.*', 
+                'inventory.stock',
+                DB::raw('(SELECT AVG(rating) FROM product_ratings WHERE product_id = products.product_id) as avg_rating'),
+                DB::raw('(SELECT COUNT(*) FROM product_ratings WHERE product_id = products.product_id) as rating_count')
+            ])
             ->get();
 
         return view('menu', compact('products'));
@@ -90,6 +113,12 @@ class PageController extends Controller
             Session::put('user_id', $user->id);
             Session::put('user_name', $user->name);
             Session::put('user_email', $user->email);
+            
+            // Ambil customer_id dari tabel customer berdasarkan user_id
+            $customer = DB::table('customer')->where('user_id', $user->id)->first();
+            if ($customer) {
+                Session::put('customer_id', $customer->customer_id);
+            }
 
             return redirect()->route('menu')->with('success', 'Selamat datang, ' . $user->name . '!');
         }
@@ -113,10 +142,20 @@ class PageController extends Controller
 
         try {
             // Insert user baru ke tabel users
-            DB::table('users')->insert([
+            $userId = DB::table('users')->insertGetId([
                 'name' => $validated['fullname'],
                 'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+            
+            // Insert customer record
+            DB::table('customer')->insert([
+                'user_id' => $userId,
+                'nama' => $validated['fullname'],
+                'no_telp' => '',
+                'alamat' => '',
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
@@ -135,6 +174,7 @@ class PageController extends Controller
         Session::forget('user_id');
         Session::forget('user_name');
         Session::forget('user_email');
+        Session::forget('customer_id');
         Session::flush();
 
         return redirect()->route('index')->with('success', 'Berhasil logout!');

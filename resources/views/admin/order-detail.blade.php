@@ -41,6 +41,24 @@
                 <a href="{{ route('admin.orders') }}" class="btn-secondary">← Kembali</a>
             </header>
 
+            @if(session('success'))
+            <div class="alert alert-success">
+                {{ session('success') }}
+            </div>
+            @endif
+
+            @if(session('error'))
+            <div class="alert alert-error">
+                {{ session('error') }}
+            </div>
+            @endif
+
+            @if(session('info'))
+            <div class="alert alert-info">
+                {{ session('info') }}
+            </div>
+            @endif
+
             <div class="order-detail-container">
                 <!-- Order Info Card -->
                 <div class="detail-card">
@@ -99,7 +117,11 @@
                         </div>
                         <div class="info-item">
                             <span class="label">Telepon:</span>
-                            <span class="value">{{ $order->no_telp ?? 'N/A' }}</span>
+                            <span class="value">{{ $order->customer_phone ?? 'N/A' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Alamat:</span>
+                            <span class="value">{{ $order->customer_address ?? 'N/A' }}</span>
                         </div>
                     </div>
                 </div>
@@ -109,7 +131,7 @@
                 <div class="detail-card" style="background: #f0fffe; border-left: 4px solid #00888a;">
                     <h2>💳 Bukti Pembayaran QRIS</h2>
                     <div style="margin: 15px 0;">
-                        <img src="{{ asset('storage/' . $order->payment_proof_path) }}" alt="Bukti Pembayaran" style="max-width: 400px; width: 100%; border-radius: 8px; border: 1px solid #ddd;">
+                        <img src="{{ route('admin.payment.proof', $order->order_id) }}" alt="Bukti Pembayaran" style="max-width: 400px; width: 100%; border-radius: 8px; border: 1px solid #ddd;">
                     </div>
                     
                     @if($order->payment_verified_at)
@@ -123,8 +145,16 @@
                     <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 12px; border-radius: 6px; margin: 10px 0;">
                         <p style="margin: 0; color: #856404;">
                             <strong>⏳ Menunggu Verifikasi</strong><br>
-                            Silakan periksa bukti pembayaran dan ubah status pesanan menjadi "Sedang Dibuat" jika valid.
+                            Silakan periksa bukti pembayaran di atas. Jika valid, klik tombol verifikasi di bawah.
                         </p>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <form action="{{ route('admin.order.verifyPayment', $order->order_id) }}" method="POST" style="display: inline;">
+                            @csrf
+                            <button type="submit" class="btn-primary" style="background: #28a745; border: none; padding: 10px 20px; border-radius: 6px; color: white; cursor: pointer; font-weight: bold;">
+                                ✅ Verifikasi Pembayaran
+                            </button>
+                        </form>
                     </div>
                     @endif
                 </div>
@@ -163,5 +193,16 @@
             </div>
         </main>
     </div>
+
+    <script>
+        // Auto hide alerts after 3 seconds
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 300);
+            });
+        }, 3000);
+    </script>
 </body>
 </html>
